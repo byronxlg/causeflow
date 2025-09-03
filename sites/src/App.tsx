@@ -32,10 +32,7 @@ function App() {
                 ...urlState,
             };
             setState(newState);
-            // Auto-generate if URL has event
-            if (newState.event) {
-                setTimeout(() => handleGenerate(newState), 100);
-            }
+            // Don't auto-generate, let user initiate
         }
     }, []);
 
@@ -110,8 +107,7 @@ function App() {
 
     const handleExampleClick = (example: string) => {
         setState((prev) => ({ ...prev, event: example }));
-        // Auto-generate for examples
-        setTimeout(() => handleGenerate({ ...state, event: example }), 100);
+        // Don't auto-generate, let user press enter or click button
     };
 
     const handleEventChange = (event: string) => {

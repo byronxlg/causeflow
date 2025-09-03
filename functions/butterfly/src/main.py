@@ -2,6 +2,13 @@ import json
 import os
 from datetime import datetime, timezone
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, continue without it
+    pass
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -29,7 +36,6 @@ class CauseStep(BaseModel):
     title: str
     summary: str
     when: str
-    confidence: str
     mechanism: str
     evidence_needed: str | None = None
     sources: list[Source] = []
@@ -44,14 +50,16 @@ class GenerateResponse(BaseModel):
 
 
 # LangGraph State
-class CausalState(BaseModel):
+from typing import TypedDict
+
+class CausalState(TypedDict):
     event: str
     perspective: str
     detail_level: int
-    raw_response: str | None = None
-    structured_steps: list[dict] | None = None
-    verified_steps: list[CauseStep] | None = None
-    error: str | None = None
+    raw_response: str | None
+    structured_steps: list[dict] | None
+    verified_steps: list[CauseStep] | None
+    error: str | None
 
 
 # Initialize tools
@@ -68,8 +76,8 @@ Requirements:
 - Start at the event ("present") and move backward in time.
 - 6-10 steps, succinct (<= 60 words per step).
 - Prefer concrete mechanisms (decisions, policies, shocks) over vague factors.
-- Annotate each step with confidence: High | Medium | Low.
-- If confidence < High, add "evidence_needed" with what would verify it (1 line).
+- Add "evidence_needed" if uncertain (1 line what would verify it).
+- Include relevant sources when available.
 - Output VALID JSON matching the provided JSON schema EXACTLY. No extra text.
 - If you are unsure of dates, give best known granularity (YYYY or YYYY-MM).
 - Avoid speculation beyond commonly accepted causal links.
@@ -82,9 +90,9 @@ JSON schema to follow:
       "title": "string",
       "summary": "string",
       "when": "YYYY or YYYY-MM or YYYY-MM-DD",
-      "confidence": "High|Medium|Low",
       "mechanism": "string",
       "evidence_needed": "string (optional)",
+      "sources": [{"title": "string", "url": "string"}],
       "depends_on": ["c2", "c3"]
     }
   ]
@@ -96,38 +104,38 @@ Return ONLY the JSON."""
 def generate_causal_chain(state: CausalState) -> CausalState:
     """Generate the initial causal chain using OpenAI."""
     try:
-        user_prompt = f"""Event: "{state.event}"
-Perspective: "{state.perspective}"
-Detail level (1-7): {state.detail_level}
+        user_prompt = f"""Event: "{state["event"]}"
+Perspective: "{state["perspective"]}"
+Detail level (1-7): {state["detail_level"]}
 
 Generate a reverse-chronological causal chain starting from this event and working backward in time."""
 
         messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
 
         response = openai_client.invoke(messages)
-        state.raw_response = response.content
+        state["raw_response"] = response.content
 
         # Parse the JSON response
         try:
             parsed = json.loads(response.content)
-            state.structured_steps = parsed.get("steps", [])
+            state["structured_steps"] = parsed.get("steps", [])
         except json.JSONDecodeError as e:
-            state.error = f"Failed to parse JSON response: {e}"
+            state["error"] = f"Failed to parse JSON response: {e}"
 
     except (KeyError, ValueError, TypeError) as e:
-        state.error = f"OpenAI generation failed: {e}"
+        state["error"] = f"OpenAI generation failed: {e}"
 
     return state
 
 
 def verify_with_search(state: CausalState) -> CausalState:
     """Verify causal steps using Tavily search and add sources."""
-    if state.error or not state.structured_steps:
+    if state["error"] or not state["structured_steps"]:
         return state
 
     verified_steps = []
 
-    for i, step_data in enumerate(state.structured_steps):
+    for i, step_data in enumerate(state["structured_steps"]):
         try:
             # Create the step object
             step = CauseStep(
@@ -135,14 +143,14 @@ def verify_with_search(state: CausalState) -> CausalState:
                 title=step_data.get("title", ""),
                 summary=step_data.get("summary", ""),
                 when=step_data.get("when", ""),
-                confidence=step_data.get("confidence", "Medium"),
                 mechanism=step_data.get("mechanism", ""),
                 evidence_needed=step_data.get("evidence_needed"),
+                sources=step_data.get("sources", []),
                 depends_on=step_data.get("depends_on", []),
             )
 
-            # Search for verification if confidence is not High
-            if step.confidence != "High" and step.evidence_needed:
+            # Search for sources and verification if evidence is needed
+            if step.evidence_needed or len(step.sources) == 0:
                 try:
                     search_query = f"{step.title} {step.when}"
                     search_results = tavily_search.invoke({"query": search_query})
@@ -166,13 +174,13 @@ def verify_with_search(state: CausalState) -> CausalState:
             # Skip malformed steps
             continue
 
-    state.verified_steps = verified_steps
+    state["verified_steps"] = verified_steps
     return state
 
 
 def should_verify(state: CausalState) -> str:
     """Decide whether to verify steps with search."""
-    if state.error:
+    if state["error"]:
         return "end"
     return "verify"
 
@@ -239,17 +247,23 @@ async def generate_causal_analysis(request: GenerateRequest, client_ip: str = "1
 
     try:
         # Create initial state
-        initial_state = CausalState(
-            event=request.event, perspective=request.perspective, detail_level=request.detail_level
-        )
+        initial_state: CausalState = {
+            "event": request.event,
+            "perspective": request.perspective,
+            "detail_level": request.detail_level,
+            "raw_response": None,
+            "structured_steps": None,
+            "verified_steps": None,
+            "error": None,
+        }
 
         # Run the workflow
         final_state = causal_workflow.invoke(initial_state)
 
-        if final_state.error:
-            raise HTTPException(status_code=500, detail=final_state.error)
+        if final_state["error"]:
+            raise HTTPException(status_code=500, detail=final_state["error"])
 
-        if not final_state.verified_steps:
+        if not final_state["verified_steps"]:
             raise HTTPException(status_code=500, detail="No causal steps generated")
 
         # Create response
@@ -257,7 +271,7 @@ async def generate_causal_analysis(request: GenerateRequest, client_ip: str = "1
             event=request.event,
             generated_at=datetime.now(timezone.utc).isoformat(),
             perspective=request.perspective,
-            steps=final_state.verified_steps,
+            steps=final_state["verified_steps"],
         )
 
     except HTTPException:

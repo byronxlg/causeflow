@@ -1,9 +1,8 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ExternalLink, AlertCircle } from 'lucide-react';
 import type { CauseStep } from '@/lib/types';
-import { getConfidenceColor, getConfidenceDot, formatWhen, cn } from '@/lib/utils';
+import { formatWhen, cn } from '@/lib/utils';
 
 interface CauseCardProps {
   step: CauseStep;
@@ -37,7 +36,7 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
       initial="hidden"
       animate="visible"
       transition={transition}
-      className="flex-shrink-0 w-80"
+      className="w-full max-w-2xl mx-auto"
     >
       <Card 
         className={cn(
@@ -67,25 +66,6 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
               </div>
             </div>
 
-            {/* Confidence indicator */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className={cn("w-3 h-3 rounded-full", getConfidenceDot(step.confidence))} />
-                    <span className={cn(
-                      "text-xs px-2 py-1 rounded-full border font-medium",
-                      getConfidenceColor(step.confidence)
-                    )}>
-                      {step.confidence}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Confidence level: {step.confidence}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
         </CardHeader>
 
@@ -105,8 +85,8 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
             </p>
           </div>
 
-          {/* Evidence needed (if confidence is not High) */}
-          {step.evidence_needed && step.confidence !== 'High' && (
+          {/* Evidence needed */}
+          {step.evidence_needed && (
             <div className="flex gap-2 p-3 bg-yellow-50 border-l-4 border-yellow-200">
               <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div>

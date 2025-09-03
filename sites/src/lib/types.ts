@@ -16,9 +16,8 @@ export const generateResponseSchema = z.object({
     title: z.string(),
     summary: z.string(),
     when: z.string(),
-    confidence: z.enum(['High', 'Medium', 'Low']),
     mechanism: z.string(),
-    evidence_needed: z.string().optional(),
+    evidence_needed: z.string().nullable().optional(),
     sources: z.array(z.object({ 
       title: z.string(), 
       url: z.string().url() 
@@ -31,7 +30,6 @@ export type GenerateRequest = z.infer<typeof generateRequestSchema>;
 export type GenerateResponse = z.infer<typeof generateResponseSchema>;
 export type CauseStep = GenerateResponse['steps'][0];
 export type Perspective = GenerateRequest['perspective'];
-export type Confidence = CauseStep['confidence'];
 
 // UI State types
 export type QueryState = {

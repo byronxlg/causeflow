@@ -1,7 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { CauseCard } from './CauseCard';
-import { Toolbar } from './Toolbar';
 import type { GenerateResponse } from '@/lib/types';
 
 interface TimelineProps {
@@ -15,85 +14,121 @@ interface ConnectorProps {
 
 function Connector({ delay }: ConnectorProps) {
   return (
-    <div className="flex items-center justify-center h-full px-4">
-      <motion.svg
-        width="60"
-        height="40"
-        viewBox="0 0 60 40"
-        className="text-orange-300"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay }}
-      >
-        <motion.path
-          d="M5 20 Q30 5 55 20"
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-          strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{
-            duration: 0.8,
-            delay: delay + 0.2,
-            ease: "easeInOut"
-          }}
+    <div className="flex items-center justify-center w-full py-8">
+      <div className="relative">
+        {/* Background glow effect */}
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-b from-orange-200/50 via-amber-200/30 to-orange-200/50 rounded-full blur-sm"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: delay + 0.1 }}
         />
-        <motion.path
-          d="M50 15 L55 20 L50 25"
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        
+        {/* Main connector */}
+        <motion.svg
+          width="48"
+          height="80"
+          viewBox="0 0 48 80"
+          className="relative z-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{
-            duration: 0.3,
-            delay: delay + 0.8
-          }}
-        />
-      </motion.svg>
+          transition={{ duration: 0.3, delay }}
+        >
+          {/* Background path */}
+          <motion.path
+            d="M24 8 Q12 40 24 72"
+            stroke="#fed7aa"
+            strokeWidth="6"
+            fill="none"
+            strokeLinecap="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{
+              duration: 1,
+              delay: delay + 0.2,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Main path */}
+          <motion.path
+            d="M24 8 Q12 40 24 72"
+            stroke="#f97316"
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{
+              duration: 1,
+              delay: delay + 0.3,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Arrow head with better design */}
+          <motion.g
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              duration: 0.4,
+              delay: delay + 1,
+              ease: "easeOut"
+            }}
+          >
+            <circle
+              cx="24"
+              cy="72"
+              r="4"
+              fill="#f97316"
+              opacity="0.8"
+            />
+            <path
+              d="M18 66 L24 72 L30 66"
+              stroke="#f97316"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </motion.g>
+          
+          {/* Floating particles */}
+          <motion.circle
+            cx="20"
+            cy="25"
+            r="1.5"
+            fill="#fbbf24"
+            initial={{ opacity: 0, y: 0 }}
+            animate={{ opacity: [0, 1, 0], y: [0, 15, 0] }}
+            transition={{
+              duration: 2,
+              delay: delay + 1.2,
+              repeat: Infinity,
+              repeatType: "loop"
+            }}
+          />
+          <motion.circle
+            cx="28"
+            cy="45"
+            r="1"
+            fill="#fb923c"
+            initial={{ opacity: 0, y: 0 }}
+            animate={{ opacity: [0, 1, 0], y: [0, 10, 0] }}
+            transition={{
+              duration: 2.5,
+              delay: delay + 1.5,
+              repeat: Infinity,
+              repeatType: "loop"
+            }}
+          />
+        </motion.svg>
+      </div>
     </div>
   );
 }
 
 export function Timeline({ data, loading = false }: TimelineProps) {
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const [showLeftFade, setShowLeftFade] = React.useState(false);
-  const [showRightFade, setShowRightFade] = React.useState(false);
-
-  useEffect(() => {
-    const timeline = timelineRef.current;
-    if (!timeline) return;
-
-    const handleScroll = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = timeline;
-      setShowLeftFade(scrollLeft > 10);
-      setShowRightFade(scrollLeft < scrollWidth - clientWidth - 10);
-    };
-
-    handleScroll(); // Initial check
-    timeline.addEventListener('scroll', handleScroll);
-    
-    // Also check on resize
-    window.addEventListener('resize', handleScroll);
-
-    return () => {
-      timeline.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [data]);
-
-  // Auto-scroll to the right (present) when data loads
-  useEffect(() => {
-    if (timelineRef.current && data && !loading) {
-      timelineRef.current.scrollTo({
-        left: timelineRef.current.scrollWidth,
-        behavior: 'smooth'
-      });
-    }
-  }, [data, loading]);
 
   if (loading) {
     return <SkeletonTimeline />;
@@ -103,17 +138,12 @@ export function Timeline({ data, loading = false }: TimelineProps) {
     return null;
   }
 
-  const steps = [...data.steps].reverse(); // Reverse for present -> past display
+  const steps = [...data.steps]; // Keep original order: newest (NOW) first, oldest last
 
   return (
     <div className="relative w-full">
-      {/* Toolbar */}
-      <div className="mb-6 flex justify-center">
-        <Toolbar data={data} timelineElementId="timeline-export" />
-      </div>
-
-      {/* Timeline container for export */}
-      <div id="timeline-export" className="bg-white/90 backdrop-blur-sm p-8 rounded-lg border border-orange-200 shadow-lg">
+      {/* Timeline container */}
+      <div className="bg-white/90 backdrop-blur-sm p-8 rounded-lg border border-orange-200 shadow-lg">
         {/* Header */}
         <div className="mb-6 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -126,30 +156,14 @@ export function Timeline({ data, loading = false }: TimelineProps) {
           </div>
           <div id="timeline-description" className="sr-only">
             Timeline showing {steps.length} causal steps from present to past. 
-            Use Tab to navigate between steps. Cards show confidence levels, mechanisms, and evidence.
+            Use Tab to navigate between steps. Cards show mechanisms and evidence.
           </div>
         </div>
 
-        {/* Timeline container with fade effects */}
-        <div className="relative">
-          {/* Left fade */}
-          {showLeftFade && (
-            <div className="absolute left-0 top-0 w-8 h-full bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-          )}
-          
-          {/* Right fade */}
-          {showRightFade && (
-            <div className="absolute right-0 top-0 w-8 h-full bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-          )}
-
-          {/* Scrollable timeline */}
+        {/* Vertical Timeline */}
+        <div className="relative max-w-4xl mx-auto">
           <div 
-            ref={timelineRef}
-            className="flex items-stretch gap-0 overflow-x-auto pb-4 scroll-smooth"
-            style={{ 
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#cbd5e1 transparent'
-            }}
+            className="flex flex-col gap-0"
             role="region"
             aria-label="Causal timeline"
             aria-describedby="timeline-description"
@@ -159,7 +173,7 @@ export function Timeline({ data, loading = false }: TimelineProps) {
                 <CauseCard 
                   step={step} 
                   index={index}
-                  isPresent={index === 0} // First card (after reverse) is present
+                  isPresent={index === 0} // First card is NOW (present)
                 />
                 {index < steps.length - 1 && (
                   <Connector delay={index * 0.1 + 0.5} />
@@ -176,11 +190,12 @@ export function Timeline({ data, loading = false }: TimelineProps) {
                 <span>Now</span>
               </div>
               <div className="flex items-center gap-2">
-                <svg width="24" height="12" viewBox="0 0 24 12" className="text-orange-300">
-                  <path d="M2 6 Q12 2 22 6" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path d="M18 3 L22 6 L18 9" stroke="currentColor" strokeWidth="2" fill="none" />
+                <svg width="16" height="28" viewBox="0 0 16 28" className="text-orange-500">
+                  <path d="M8 2 Q4 14 8 26" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+                  <circle cx="8" cy="26" r="2" fill="currentColor" opacity="0.8" />
+                  <path d="M5 21 L8 26 L11 21" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span>Time flows left</span>
+                <span>Time flows down</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
