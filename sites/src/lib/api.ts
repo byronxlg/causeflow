@@ -1,7 +1,7 @@
 import type { GenerateRequest, GenerateResponse } from './types';
 import { generateResponseSchema } from './types';
 
-const API_BASE = '/api';
+const API_BASE = `${import.meta.env.VITE_API_HOST || 'http://localhost:3000'}/api`;
 
 export class ApiError extends Error {
   public status: number;
