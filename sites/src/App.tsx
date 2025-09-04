@@ -2,14 +2,19 @@ import { EmptyState } from "@/components/EmptyState";
 import { PromptBar } from "@/components/PromptBar";
 import { Timeline } from "@/components/Timeline";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { Button } from "@/components/ui/button";
 import { ApiError, generateCausalChain } from "@/lib/api";
 import type { GenerateRequest, Perspective, QueryState } from "@/lib/types";
 import { decodeUrlState, encodeUrlState } from "@/lib/utils";
-import { Route } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Route, LogIn, LogOut, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 function App() {
+    const { user, loading: authLoading, logout } = useAuth();
+    const [authModalOpen, setAuthModalOpen] = useState(false);
     const [state, setState] = useState<QueryState>({
         event: "",
         perspective: "balanced",
@@ -57,6 +62,12 @@ function App() {
     }, [state.event, state.perspective, state.detailLevel, state.verify]);
 
     const handleGenerate = async (currentState?: QueryState) => {
+        if (!user) {
+            toast.error("Please sign in to generate causal chains");
+            setAuthModalOpen(true);
+            return;
+        }
+
         const stateToUse = currentState || state;
 
         if (!stateToUse.event.trim()) {
@@ -149,12 +160,41 @@ function App() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [state.event, state.loading, state.result]);
 
+    const handleLogout = async () => {
+        try {
+            await logout();
+            setState({
+                event: "",
+                perspective: "balanced",
+                detailLevel: 5,
+                verify: false,
+                loading: false,
+            });
+            toast.success("Successfully logged out");
+        } catch (error: any) {
+            toast.error(error.message || "Logout failed");
+        }
+    };
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex justify-center items-center mb-4 mx-auto">
+                        <Route />
+                    </div>
+                    <p className="text-gray-600">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-red-50">
             {/* Header */}
             <header className="bg-white/80 backdrop-blur-sm border-b border-orange-200 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center">
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex justify-center items-center">
                                 <Route />
@@ -162,6 +202,34 @@ function App() {
                             <h1 className="text-2xl font-bold text-gray-900">
                                 Butterfly
                             </h1>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            {user ? (
+                                <>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <User size={16} />
+                                        <span>{user.name || user.email}</span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleLogout}
+                                    >
+                                        <LogOut size={16} />
+                                        Sign Out
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => setAuthModalOpen(true)}
+                                >
+                                    <LogIn size={16} />
+                                    Sign In
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -206,6 +274,12 @@ function App() {
 
             {/* Toast notifications */}
             <Toaster position="top-right" />
+            
+            {/* Auth modal */}
+            <AuthModal
+                isOpen={authModalOpen}
+                onClose={() => setAuthModalOpen(false)}
+            />
         </div>
     );
 }
