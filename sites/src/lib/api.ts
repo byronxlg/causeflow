@@ -1,4 +1,4 @@
-import { Client, Functions, Account } from "appwrite";
+import { Account, Client, Functions } from "appwrite";
 import type { GenerateRequest, GenerateResponse } from "./types";
 import { generateResponseSchema } from "./types";
 
@@ -17,8 +17,8 @@ client
     .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID || "");
 
 // Set the locale for better error messages
-if (typeof window !== 'undefined') {
-    client.headers['X-Appwrite-Response-Format'] = '1.6.0';
+if (typeof window !== "undefined") {
+    client.headers["X-Appwrite-Response-Format"] = "1.6.0";
 }
 
 // Initialize services
@@ -76,7 +76,7 @@ export async function generateCausalChain(
 
         try {
             const result = await functions.createExecution(
-                "68b8201e0034fdb29ab0",
+                import.meta.env.VITE_APPWRITE_FUNCTION_ID || "",
                 JSON.stringify(payload),
             );
 
@@ -116,10 +116,10 @@ export const auth = {
     async register(email: string, password: string) {
         try {
             // Create account using the newer method
-            const user = await account.create('unique()', email, password);
+            const user = await account.create("unique()", email, password);
             return user;
         } catch (error: any) {
-            const errorMessage = error?.message || 'Registration failed';
+            const errorMessage = error?.message || "Registration failed";
             throw new ApiError(400, errorMessage);
         }
     },
@@ -128,10 +128,13 @@ export const auth = {
     async login(email: string, password: string) {
         try {
             // Create session using the newer method
-            const session = await account.createEmailPasswordSession(email, password);
+            const session = await account.createEmailPasswordSession(
+                email,
+                password,
+            );
             return session;
         } catch (error: any) {
-            const errorMessage = error?.message || 'Login failed';
+            const errorMessage = error?.message || "Login failed";
             throw new ApiError(401, errorMessage);
         }
     },
@@ -148,9 +151,9 @@ export const auth = {
     // Logout
     async logout() {
         try {
-            return await account.deleteSession('current');
+            return await account.deleteSession("current");
         } catch (error: any) {
-            const errorMessage = error?.message || 'Logout failed';
+            const errorMessage = error?.message || "Logout failed";
             throw new ApiError(400, errorMessage);
         }
     },
@@ -163,5 +166,5 @@ export const auth = {
         } catch {
             return false;
         }
-    }
+    },
 };
