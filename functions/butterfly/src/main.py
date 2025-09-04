@@ -2,7 +2,7 @@
 
 import json
 
-from causal_analysis import analyze_causal_chain
+from .causal_analysis import analyze_causal_chain
 
 
 def main(context):  # noqa: ANN001, ANN201
