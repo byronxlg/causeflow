@@ -1,4 +1,22 @@
 {
     "projectId": "68b8140f0037f47c1b08",
-    "endpoint": "https://syd.cloud.appwrite.io/v1"
+    "endpoint": "https://syd.cloud.appwrite.io/v1",
+    "functions": [
+        {
+            "$id": "68b8201e0034fdb29ab0",
+            "execute": ["any"],
+            "name": "butterfly_agent",
+            "enabled": true,
+            "logging": true,
+            "runtime": "python-ml-3.11",
+            "scopes": [],
+            "events": [],
+            "schedule": "",
+            "timeout": 900,
+            "entrypoint": "src/main.py",
+            "commands": "pip install -r requirements.txt",
+            "specification": "s-0.5vcpu-512mb",
+            "path": "functions/butterfly_agent"
+        }
+    ]
 }
