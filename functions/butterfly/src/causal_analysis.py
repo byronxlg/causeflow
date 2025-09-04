@@ -1,24 +1,23 @@
 """Pure causal analysis logic without FastAPI dependencies."""
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from typing import TypedDict
 
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    # dotenv not available, continue without it
-    pass
-
+from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
+
+load_dotenv()
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 # Pydantic models
@@ -103,6 +102,8 @@ Return ONLY the JSON."""
 
 def generate_causal_chain(state: CausalState) -> CausalState:
     """Generate the initial causal chain using OpenAI."""
+    logger.info(f"Generating causal chain for event: '{state['event']}'")
+
     try:
         user_prompt = f"""Event: "{state["event"]}"
 Perspective: "{state["perspective"]}"
@@ -110,27 +111,37 @@ Detail level (1-7): {state["detail_level"]}
 
 Generate a reverse-chronological causal chain starting from this event and working backward in time."""
 
+        logger.info("Sending prompt to OpenAI")
         messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
 
         response = openai_client.invoke(messages)
         state["raw_response"] = response.content
+        logger.info(f"Received response from OpenAI: {len(response.content)} characters")
 
         # Parse the JSON response
         try:
             parsed = json.loads(response.content)
             state["structured_steps"] = parsed.get("steps", [])
+            logger.info(f"Successfully parsed {len(state['structured_steps'])} structured steps")
         except json.JSONDecodeError as e:
-            state["error"] = f"Failed to parse JSON response: {e}"
+            error_msg = f"Failed to parse JSON response: {e}"
+            logger.error(error_msg)
+            state["error"] = error_msg
 
     except (KeyError, ValueError, TypeError) as e:
-        state["error"] = f"OpenAI generation failed: {e}"
+        error_msg = f"OpenAI generation failed: {e}"
+        logger.error(error_msg)
+        state["error"] = error_msg
 
     return state
 
 
 def verify_with_search(state: CausalState) -> CausalState:
     """Verify causal steps using Tavily search and add sources."""
+    logger.info("Starting verification with search")
+
     if state["error"] or not state["structured_steps"]:
+        logger.warning("Skipping verification due to error or no structured steps")
         return state
 
     verified_steps = []
@@ -220,6 +231,10 @@ def analyze_causal_chain(event: str, perspective: str = "balanced", detail_level
     Raises:
         ValueError: If analysis fails or no steps are generated
     """  # noqa: D401
+    logger.info(
+        f"Starting causal chain analysis for event: '{event}' with perspective: '{perspective}' and detail_level: {detail_level}"
+    )
+
     # Create initial state
     initial_state: CausalState = {
         "event": event,
@@ -231,20 +246,31 @@ def analyze_causal_chain(event: str, perspective: str = "balanced", detail_level
         "error": None,
     }
 
+    logger.info("Initial state created, invoking causal workflow")
+
     # Run the workflow
     final_state = causal_workflow.invoke(initial_state)
 
+    logger.info("Causal workflow completed")
+
     if final_state["error"]:
+        logger.error(f"Workflow failed with error: {final_state['error']}")
         raise ValueError(final_state["error"])
 
     if not final_state["verified_steps"]:
         msg = "No causal steps generated"
+        logger.error(msg)
         raise ValueError(msg)
 
+    logger.info(f"Successfully generated {len(final_state['verified_steps'])} verified causal steps")
+
     # Create response
-    return GenerateResponse(
+    response = GenerateResponse(
         event=event,
         generated_at=datetime.now(timezone.utc).isoformat(),
         perspective=perspective,
         steps=final_state["verified_steps"],
     )
+
+    logger.info("GenerateResponse object created successfully")
+    return response
