@@ -37,7 +37,6 @@ export function PromptBar({
     onEventChange,
     onGenerate,
     loading,
-    onExampleClick,
 }: PromptBarProps) {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onEventChange(e.target.value);

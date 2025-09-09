@@ -1,4 +1,3 @@
-import { EmptyState } from "@/components/EmptyState";
 import { PromptBar } from "@/components/PromptBar";
 import { Timeline } from "@/components/Timeline";
 import { LandingPage } from "@/components/LandingPage";

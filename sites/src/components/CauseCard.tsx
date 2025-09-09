@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ExternalLink } from 'lucide-react';
 import { LinkPreview } from '@/components/ui/link-preview';
 import type { CauseStep } from '@/lib/types';
-import { formatWhen, cn } from '@/lib/utils';
+import { formatWhen } from '@/lib/utils';
 
 interface CauseCardProps {
   step: CauseStep;
