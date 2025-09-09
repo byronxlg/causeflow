@@ -63,11 +63,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-md p-6 relative">
                 <button
                     onClick={onClose}
-                    className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+                    className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
                 >
                     <X size={20} />
                 </button>

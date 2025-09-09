@@ -93,11 +93,21 @@ export async function generateCausalChain(
                 throw new ApiError(result.responseStatusCode, errorMessage);
             }
 
+            // Check if response body is empty
+            if (!result.responseBody || result.responseBody.trim() === '') {
+                throw new ApiError(500, "Function returned empty response - likely timeout or execution error");
+            }
+
             const data = JSON.parse(result.responseBody);
             return generateResponseSchema.parse(data);
         } catch (error) {
             if (error instanceof ApiError) {
                 throw error;
+            }
+
+            // Handle JSON parsing errors specifically
+            if (error instanceof SyntaxError && error.message.includes('JSON')) {
+                throw new ApiError(500, `Function returned invalid JSON response`);
             }
 
             throw new ApiError(

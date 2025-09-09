@@ -63,7 +63,11 @@ class CausalState(TypedDict):
 
 # Initialize tools
 openai_client = ChatOpenAI(
-    model=os.getenv("MODEL_NAME", "gpt-4o-mini"), api_key=os.getenv("OPENAI_API_KEY"), temperature=0.3
+    model=os.getenv("MODEL_NAME", "gpt-4o-mini"), 
+    api_key=os.getenv("OPENAI_API_KEY"), 
+    temperature=0.3,
+    timeout=60,  # 60 second timeout for OpenAI calls
+    max_retries=2  # Allow 2 retries
 )
 
 tavily_search = TavilySearchResults(api_key=os.getenv("TAVILY_API_KEY"), max_results=3)
@@ -72,14 +76,21 @@ tavily_search = TavilySearchResults(api_key=os.getenv("TAVILY_API_KEY"), max_res
 SYSTEM_PROMPT = """You produce reverse-chronological causal chains for current events.
 Requirements:
 
+CRITICAL - FACTUAL ACCURACY:
+- Only include events that actually happened. Never create fictional events.
+- Verify dates carefully. If unsure about exact dates, use broader timeframes (YYYY or YYYY-MM).
+- Current date context: We are in 2024. GPT-5 has NOT been released as of 2024.
+- Be extremely conservative about recent AI releases - verify they actually happened.
+
 - Start at the event ("present") and move backward in time.
 - 6-10 steps, succinct (<= 60 words per step).
 - Prefer concrete mechanisms (decisions, policies, shocks) over vague factors.
 - Add "evidence_needed" if uncertain (1 line what would verify it).
 - Include relevant sources when available.
-- Output VALID JSON matching the provided JSON schema EXACTLY. No extra text.
+- Output VALID JSON matching the provided JSON schema EXACTLY. No extra text, no markdown formatting.
 - If you are unsure of dates, give best known granularity (YYYY or YYYY-MM).
 - Avoid speculation beyond commonly accepted causal links.
+- Start your response with { and end with }. Do not include any text before or after the JSON.
 
 JSON schema to follow:
 {
@@ -97,7 +108,7 @@ JSON schema to follow:
   ]
 }
 
-Return ONLY the JSON."""
+IMPORTANT: Return ONLY valid JSON. No explanations, no markdown, no code blocks."""
 
 
 def generate_causal_chain(state: CausalState) -> CausalState:
@@ -105,26 +116,55 @@ def generate_causal_chain(state: CausalState) -> CausalState:
     logger.info(f"Generating causal chain for event: '{state['event']}'")
 
     try:
+        current_date = datetime.now().strftime("%Y-%m-%d")
         user_prompt = f"""Event: "{state["event"]}"
 Perspective: "{state["perspective"]}"
 Detail level (1-7): {state["detail_level"]}
+Current date: {current_date}
 
-Generate a reverse-chronological causal chain starting from this event and working backward in time."""
+Generate a reverse-chronological causal chain starting from this event and working backward in time.
+
+IMPORTANT: Only include events that actually happened. Verify all dates are accurate. Do not speculate about events that may not have occurred."""
 
         logger.info("Sending prompt to OpenAI")
         messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
 
-        response = openai_client.invoke(messages)
-        state["raw_response"] = response.content
-        logger.info(f"Received response from OpenAI: {len(response.content)} characters")
+        try:
+            response = openai_client.invoke(messages)
+            
+            if not response.content or response.content.strip() == "":
+                error_msg = "OpenAI returned empty response"
+                logger.error(error_msg)
+                state["error"] = error_msg
+                return state
+                
+            state["raw_response"] = response.content
+            logger.info(f"Received response from OpenAI: {len(response.content)} characters")
+            logger.debug(f"OpenAI response content: {response.content[:500]}...")
+            
+        except Exception as e:
+            error_msg = f"OpenAI API call failed: {e}"
+            logger.error(error_msg)
+            state["error"] = error_msg
+            return state
 
         # Parse the JSON response
         try:
-            parsed = json.loads(response.content)
+            # Clean up response content in case it has markdown formatting
+            content = response.content.strip()
+            if content.startswith("```json"):
+                content = content[7:]  # Remove ```json
+            if content.startswith("```"):
+                content = content[3:]  # Remove ```
+            if content.endswith("```"):
+                content = content[:-3]  # Remove trailing ```
+            content = content.strip()
+            
+            parsed = json.loads(content)
             state["structured_steps"] = parsed.get("steps", [])
             logger.info(f"Successfully parsed {len(state['structured_steps'])} structured steps")
         except json.JSONDecodeError as e:
-            error_msg = f"Failed to parse JSON response: {e}"
+            error_msg = f"Failed to parse JSON response: {e}. Response was: {response.content[:200]}..."
             logger.error(error_msg)
             state["error"] = error_msg
 
@@ -148,7 +188,16 @@ def verify_with_search(state: CausalState) -> CausalState:
 
     for i, step_data in enumerate(state["structured_steps"]):
         try:
-            # Create the step object
+            # Create the step object with proper source conversion
+            existing_sources = []
+            if step_data.get("sources"):
+                for src in step_data.get("sources", []):
+                    if isinstance(src, dict):
+                        existing_sources.append(Source(
+                            title=src.get("title", ""),
+                            url=src.get("url", "")
+                        ))
+                    
             step = CauseStep(
                 id=step_data.get("id", f"c{i + 1}"),
                 title=step_data.get("title", ""),
@@ -156,28 +205,34 @@ def verify_with_search(state: CausalState) -> CausalState:
                 when=step_data.get("when", ""),
                 mechanism=step_data.get("mechanism", ""),
                 evidence_needed=step_data.get("evidence_needed"),
-                sources=step_data.get("sources", []),
+                sources=existing_sources,
                 depends_on=step_data.get("depends_on", []),
             )
 
-            # Search for sources and verification if evidence is needed
-            if step.evidence_needed or len(step.sources) == 0:
+            # Only search for additional sources if no sources exist and evidence is needed
+            if len(step.sources) == 0 and step.evidence_needed:
                 try:
+                    # Add timeout for search requests
                     search_query = f"{step.title} {step.when}"
+                    # Set shorter timeout for search to prevent hanging
                     search_results = tavily_search.invoke({"query": search_query})
 
+                    logger.info(f"Search results for '{search_query}': {search_results}")
+
                     # Parse search results and add as sources
-                    sources = [
-                        Source(title=result.get("title", "Search Result"), url=result.get("url", ""))
-                        for result in search_results[:2]  # Limit to 2 sources per step
-                        if isinstance(result, dict)
-                    ]
+                    sources = []
+                    for result in search_results[:2]:  # Limit to 2 sources per step
+                        if isinstance(result, dict) and result.get("url"):
+                            title = result.get("title", result.get("content", "Unknown Source")[:50])
+                            url = result.get("url", "")
+                            logger.info(f"Adding source: title='{title}', url='{url}'")
+                            sources.append(Source(title=title, url=url))
 
                     step.sources = sources
 
-                except (ValueError, KeyError, TypeError):
+                except (ValueError, KeyError, TypeError, Exception):
                     # Continue without sources - search API issues are non-critical
-                    pass
+                    logger.warning(f"Search failed for step {step.title}, continuing without sources")
 
             verified_steps.append(step)
 
@@ -232,7 +287,8 @@ def analyze_causal_chain(event: str, perspective: str = "balanced", detail_level
         ValueError: If analysis fails or no steps are generated
     """  # noqa: D401
     logger.info(
-        f"Starting causal chain analysis for event: '{event}' with perspective: '{perspective}' and detail_level: {detail_level}"
+        f"Starting causal chain analysis for event: '{event}' "
+        f"with perspective: '{perspective}' and detail_level: {detail_level}"
     )
 
     # Create initial state

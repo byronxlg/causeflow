@@ -1,16 +1,16 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { ExternalLink, AlertCircle } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import { LinkPreview } from '@/components/ui/link-preview';
 import type { CauseStep } from '@/lib/types';
 import { formatWhen, cn } from '@/lib/utils';
 
 interface CauseCardProps {
   step: CauseStep;
   index: number;
-  isPresent?: boolean;
 }
 
-export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
+export function CauseCard({ step, index }: CauseCardProps) {
   const cardVariants = {
     hidden: { 
       opacity: 0, 
@@ -39,10 +39,7 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
       className="w-full max-w-2xl mx-auto"
     >
       <Card 
-        className={cn(
-          "h-full relative overflow-hidden transition-all duration-200 focus-within:ring-2 focus-within:ring-orange-400 bg-white border border-orange-200",
-          isPresent ? "ring-2 ring-orange-300 bg-orange-50/50 shadow-lg" : "hover:shadow-md hover:border-orange-300"
-        )}
+        className="h-full relative overflow-hidden transition-all duration-200 focus-within:ring-2 focus-within:ring-primary bg-card border border-border hover:shadow-md hover:border-primary/30"
         role="article"
         aria-label={`Causal step: ${step.title}`}
         tabIndex={0}
@@ -51,18 +48,13 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg leading-tight text-gray-900 break-words">
+              <h3 className="font-semibold text-lg leading-tight text-foreground break-words">
                 {step.title}
               </h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-gray-600 font-medium">
+                <span className="text-sm text-muted-foreground font-medium">
                   {formatWhen(step.when)}
                 </span>
-                {isPresent && (
-                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
-                    Now
-                  </span>
-                )}
               </div>
             </div>
 
@@ -71,57 +63,54 @@ export function CauseCard({ step, index, isPresent = false }: CauseCardProps) {
 
         <CardContent className="pt-0 space-y-3">
           {/* Summary */}
-          <p className="text-sm text-gray-700 leading-relaxed">
+          <p className="text-sm text-foreground leading-relaxed">
             {step.summary}
           </p>
 
           {/* Mechanism */}
-          <div className="bg-orange-50/50 border border-orange-100 rounded-lg p-3">
-            <h4 className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
+          <div className="bg-secondary/20 border border-border rounded-lg p-3">
+            <h4 className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
               How it happened
             </h4>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               {step.mechanism}
             </p>
           </div>
 
-          {/* Evidence needed */}
-          {step.evidence_needed && (
-            <div className="flex gap-2 p-3 bg-yellow-50 border-l-4 border-yellow-200">
-              <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
-                  Evidence Needed
-                </h4>
-                <p className="text-sm text-yellow-700 mt-1">
-                  {step.evidence_needed}
-                </p>
-              </div>
-            </div>
-          )}
 
-          {/* Sources */}
-          {step.sources && step.sources.length > 0 && (
+          {/* Sources - Always show at least one link */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {step.sources && step.sources.length > 0 ? 'Sources' : 'Research'}
+            </h4>
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                Sources
-              </h4>
-              <div className="space-y-1">
-                {step.sources.map((source, idx) => (
-                  <a
+              {step.sources && step.sources.length > 0 ? (
+                step.sources.map((source, idx) => (
+                  <LinkPreview
                     key={idx}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors group"
+                    url={source.url}
+                    className="block"
                   >
-                    <ExternalLink className="w-3 h-3 group-hover:scale-110 transition-transform" />
-                    <span className="truncate">{source.title}</span>
-                  </a>
-                ))}
-              </div>
+                    <div className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 hover:underline transition-colors group p-2 rounded-md hover:bg-secondary/50 cursor-pointer">
+                      <ExternalLink className="w-3 h-3 group-hover:scale-110 transition-transform flex-shrink-0" />
+                      <span className="truncate">{source.title}</span>
+                    </div>
+                  </LinkPreview>
+                ))
+              ) : (
+                // Fallback search link when no sources are available
+                <LinkPreview
+                  url={`https://www.google.com/search?q=${encodeURIComponent(step.title + ' ' + step.when)}`}
+                  className="block"
+                >
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary hover:underline transition-colors group p-2 rounded-md hover:bg-secondary/50 cursor-pointer">
+                    <ExternalLink className="w-3 h-3 group-hover:scale-110 transition-transform flex-shrink-0" />
+                    <span className="truncate">Search for more information</span>
+                  </div>
+                </LinkPreview>
+              )}
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>

@@ -10,7 +10,7 @@ export async function exportToPNG(elementId: string, filename: string = 'butterf
 
   try {
     const canvas = await html2canvas(element, {
-      background: '#ffffff',
+      background: 'hsl(var(--background))',
       useCORS: true,
       allowTaint: false,
       width: element.scrollWidth,
@@ -38,7 +38,7 @@ export async function exportToPDF(elementId: string, data: GenerateResponse, fil
 
   try {
     const canvas = await html2canvas(element, {
-      background: '#ffffff',
+      background: 'hsl(var(--background))',
       useCORS: true,
       allowTaint: false,
       width: element.scrollWidth,
