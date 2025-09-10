@@ -31,6 +31,7 @@ export function PromptBar({
     onEventChange,
     onGenerate,
     loading,
+    onExampleClick,
     isUserLoggedIn = true,
 }: PromptBarProps) {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +47,8 @@ export function PromptBar({
 
     const handleExampleClick = (exampleText: string) => {
         onEventChange(exampleText);
+        // Also notify optional external handler if provided
+        if (onExampleClick) onExampleClick(exampleText);
     };
 
     if (loading) {
@@ -53,11 +56,12 @@ export function PromptBar({
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto relative">
+        <div className="w-full max-w-7xl mx-auto relative">
             <PlaceholdersAndVanishInput
                 placeholders={PLACEHOLDERS}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
+                value={event}
             />
             
             {/* Example buttons for non-logged in users */}

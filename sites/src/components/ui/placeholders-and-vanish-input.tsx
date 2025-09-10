@@ -8,10 +8,12 @@ export function PlaceholdersAndVanishInput({
   placeholders,
   onChange,
   onSubmit,
+  value: externalValue,
 }: {
   placeholders: string[];
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  value?: string;
 }) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
 
@@ -113,6 +115,13 @@ export function PlaceholdersAndVanishInput({
     }
   }, []);
 
+  // Sync external value from parent (e.g., example buttons) into local state
+  useEffect(() => {
+    if (externalValue !== undefined && !animating) {
+      setValue(externalValue);
+    }
+  }, [externalValue, animating]);
+
   const animate = (start: number) => {
     const animateFrame = (pos: number = 0) => {
       requestAnimationFrame(() => {
@@ -186,7 +195,7 @@ export function PlaceholdersAndVanishInput({
   return (
     <form
       className={cn(
-        "w-full relative max-w-4xl mx-auto bg-card border border-border h-16 rounded-full overflow-hidden shadow-lg transition duration-200",
+        "w-full relative max-w-7xl mx-auto bg-card border border-border h-20 rounded-full overflow-hidden shadow-lg transition duration-200",
         value && "bg-muted/20"
       )}
       onSubmit={handleSubmit}
@@ -210,7 +219,7 @@ export function PlaceholdersAndVanishInput({
         value={value}
         type="text"
         className={cn(
-          "w-full relative text-base sm:text-lg z-50 border-none text-foreground bg-transparent h-full rounded-full focus:outline-none focus:ring-0 pl-6 sm:pl-12 pr-24",
+          "w-full relative text-xl sm:text-2xl z-50 border-none text-foreground bg-transparent h-full rounded-full focus:outline-none focus:ring-0 pl-6 sm:pl-12 pr-28",
           animating && "text-transparent"
         )}
       />
@@ -218,19 +227,19 @@ export function PlaceholdersAndVanishInput({
       <button
         disabled={!value}
         type="submit"
-        className="absolute right-3 top-1/2 z-50 -translate-y-1/2 h-10 w-10 rounded-full bg-primary disabled:bg-muted transition duration-200 flex items-center justify-center"
+        className="absolute right-3 top-1/2 z-50 -translate-y-1/2 h-12 w-12 rounded-full bg-primary disabled:bg-muted transition duration-200 flex items-center justify-center"
       >
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
+          width="28"
+          height="28"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-primary-foreground h-5 w-5"
+          className="text-primary-foreground h-6 w-6"
         >
           <path stroke="none" d="M0 0h24v24H0z" fill="none" />
           <motion.path
@@ -273,7 +282,7 @@ export function PlaceholdersAndVanishInput({
                 duration: 0.3,
                 ease: "linear",
               }}
-              className="text-muted-foreground text-base sm:text-lg font-normal pl-6 sm:pl-12 text-left w-[calc(100%-3rem)] truncate"
+              className="text-muted-foreground text-xl sm:text-2xl font-normal pl-6 sm:pl-12 text-left w-[calc(100%-3rem)] truncate"
             >
               {placeholders[currentPlaceholder]}
             </motion.p>

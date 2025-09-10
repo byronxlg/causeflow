@@ -31,9 +31,10 @@ export function LandingPage({
     const headerScale = useTransform(scrollY, [0, 300], [1, 0.6]);
     const headerOpacity = useTransform(scrollY, [0, 150, 300], [1, 1, 0.9]);
 
-    const inputY = useTransform(scrollY, [0, 300], [100, 0]);
-    const inputOpacity = useTransform(scrollY, [0, 150, 300], [0, 0.5, 1]);
-    const inputScale = useTransform(scrollY, [0, 300], [0.8, 1]);
+    const inputY = useTransform(scrollY, [0, 200], [40, 0]);
+    const inputOpacity = useTransform(scrollY, [0, 120, 240], [0, 0, 1]);
+    const inputScale = useTransform(scrollY, [0, 200], [0.98, 1]);
+    const inputPointerEvents = useTransform(scrollY, [0, 120], ["none", "auto"]);
 
     const arrowOpacity = useTransform(scrollY, [0, 100], [1, 0]);
     const featuresOpacity = useTransform(scrollY, [0, 150], [1, 0]);
@@ -41,7 +42,11 @@ export function LandingPage({
     return (
         <AuroraBackground>
             <div ref={containerRef} className="relative w-full">
-                {/* Fixed Header Section */}
+                {/* Fixed Header Section */
+                /**
+                 * Keep the hero text centered, and place the input directly below it
+                 * to avoid overlapping the headline/features.
+                 */}
                 <motion.div
                     style={{
                         y: headerY,
@@ -67,6 +72,21 @@ export function LandingPage({
                             Understand how events unfold through time. Trace the
                             causal chain from present to past.
                         </div>
+                    </motion.div>
+
+                    {/* Input - centered below headline */}
+                    <motion.div
+                        style={{ y: inputY, opacity: inputOpacity, scale: inputScale, pointerEvents: inputPointerEvents }}
+                        className="w-full max-w-7xl px-4 mt-8"
+                    >
+                        <PromptBar
+                            event={event}
+                            onEventChange={onEventChange}
+                            onGenerate={onGenerate}
+                            loading={loading}
+                            onExampleClick={onExampleClick}
+                            isUserLoggedIn={isUserLoggedIn}
+                        />
                     </motion.div>
 
                     {/* Scroll Arrow */}
@@ -141,24 +161,7 @@ export function LandingPage({
                     </motion.div>
                 </motion.div>
 
-                {/* Input Section - appears on scroll */}
-                <motion.div
-                    style={{
-                        y: inputY,
-                        opacity: inputOpacity,
-                        scale: inputScale,
-                    }}
-                    className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 w-full max-w-4xl px-4"
-                >
-                    <PromptBar
-                        event={event}
-                        onEventChange={onEventChange}
-                        onGenerate={onGenerate}
-                        loading={loading}
-                        onExampleClick={onExampleClick}
-                        isUserLoggedIn={isUserLoggedIn}
-                    />
-                </motion.div>
+                
 
                 {/* Spacer to allow scrolling */}
                 <div className="h-[200vh]" />
