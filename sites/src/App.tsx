@@ -233,24 +233,46 @@ function App() {
                 }));
 
                 // Update the history file with the expanded timeline
-                console.log("Attempting to update history - File ID:", state.currentHistoryFileId, "Has result:", !!updatedResult);
-                console.log("Original steps:", state.result?.steps.length, "New steps:", newSteps.length, "Total steps:", updatedResult?.steps.length);
+                console.log(
+                    "Attempting to update history - File ID:",
+                    state.currentHistoryFileId,
+                    "Has result:",
+                    !!updatedResult,
+                );
+                console.log(
+                    "Original steps:",
+                    state.result?.steps.length,
+                    "New steps:",
+                    newSteps.length,
+                    "Total steps:",
+                    updatedResult?.steps.length,
+                );
                 if (state.currentHistoryFileId && updatedResult) {
                     try {
-                        console.log("Updating history file with", updatedResult.steps.length, "steps");
+                        console.log(
+                            "Updating history file with",
+                            updatedResult.steps.length,
+                            "steps",
+                        );
                         await HistoryService.updateHistory(
                             state.currentHistoryFileId,
                             user.$id,
                             updatedResult,
                         );
-                        console.log("History file updated successfully with expanded timeline");
+                        console.log(
+                            "History file updated successfully with expanded timeline",
+                        );
                         toast.success("Timeline saved with expanded history");
                     } catch (error) {
                         console.error("Failed to update history file:", error);
-                        toast.error("Failed to save expanded timeline to history");
+                        toast.error(
+                            "Failed to save expanded timeline to history",
+                        );
                     }
                 } else {
-                    console.log("Skipping history update - Missing fileId or result");
+                    console.log(
+                        "Skipping history update - Missing fileId or result",
+                    );
                 }
 
                 toast.success(
@@ -456,8 +478,8 @@ function App() {
                             <MultiStepLoaderInline
                                 loadingStates={LOADING_STATES}
                                 loading={state.loading}
-                                duration={3000}
-                                loop={true}
+                                duration={4000}
+                                loop={false}
                             />
                         </div>
                     ) : null}
