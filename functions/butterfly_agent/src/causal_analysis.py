@@ -63,11 +63,11 @@ class CausalState(TypedDict):
 
 # Initialize tools
 openai_client = ChatOpenAI(
-    model=os.getenv("MODEL_NAME", "gpt-4o-mini"), 
-    api_key=os.getenv("OPENAI_API_KEY"), 
+    model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+    api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0.3,
     timeout=60,  # 60 second timeout for OpenAI calls
-    max_retries=2  # Allow 2 retries
+    max_retries=2,  # Allow 2 retries
 )
 
 tavily_search = TavilySearchResults(api_key=os.getenv("TAVILY_API_KEY"), max_results=3)
@@ -116,33 +116,34 @@ def generate_causal_chain(state: CausalState) -> CausalState:
     logger.info(f"Generating causal chain for event: '{state['event']}'")
 
     try:
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y-%m-%d")  # noqa: DTZ005
         user_prompt = f"""Event: "{state["event"]}"
-Perspective: "{state["perspective"]}"
-Detail level (1-7): {state["detail_level"]}
-Current date: {current_date}
+            Perspective: "{state["perspective"]}"
+            Detail level (1-7): {state["detail_level"]}
+            Current date: {current_date}
 
-Generate a reverse-chronological causal chain starting from this event and working backward in time.
+            Generate a reverse-chronological causal chain starting from this event and working backward in time.
 
-IMPORTANT: Only include events that actually happened. Verify all dates are accurate. Do not speculate about events that may not have occurred."""
+            IMPORTANT: Only include events that actually happened. Verify all dates are accurate. Do not speculate about events that may not have occurred.
+        """  # noqa: E501
 
         logger.info("Sending prompt to OpenAI")
         messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
 
         try:
             response = openai_client.invoke(messages)
-            
+
             if not response.content or response.content.strip() == "":
                 error_msg = "OpenAI returned empty response"
                 logger.error(error_msg)
                 state["error"] = error_msg
                 return state
-                
+
             state["raw_response"] = response.content
             logger.info(f"Received response from OpenAI: {len(response.content)} characters")
             logger.debug(f"OpenAI response content: {response.content[:500]}...")
-            
-        except Exception as e:
+
+        except Exception as e:  # noqa: BLE001
             error_msg = f"OpenAI API call failed: {e}"
             logger.error(error_msg)
             state["error"] = error_msg
@@ -159,7 +160,7 @@ IMPORTANT: Only include events that actually happened. Verify all dates are accu
             if content.endswith("```"):
                 content = content[:-3]  # Remove trailing ```
             content = content.strip()
-            
+
             parsed = json.loads(content)
             state["structured_steps"] = parsed.get("steps", [])
             logger.info(f"Successfully parsed {len(state['structured_steps'])} structured steps")
@@ -176,7 +177,7 @@ IMPORTANT: Only include events that actually happened. Verify all dates are accu
     return state
 
 
-def verify_with_search(state: CausalState) -> CausalState:
+def verify_with_search(state: CausalState) -> CausalState:  # noqa: C901
     """Verify causal steps using Tavily search and add sources."""
     logger.info("Starting verification with search")
 
@@ -193,11 +194,8 @@ def verify_with_search(state: CausalState) -> CausalState:
             if step_data.get("sources"):
                 for src in step_data.get("sources", []):
                     if isinstance(src, dict):
-                        existing_sources.append(Source(
-                            title=src.get("title", ""),
-                            url=src.get("url", "")
-                        ))
-                    
+                        existing_sources.append(Source(title=src.get("title", ""), url=src.get("url", "")))  # noqa: PERF401
+
             step = CauseStep(
                 id=step_data.get("id", f"c{i + 1}"),
                 title=step_data.get("title", ""),
