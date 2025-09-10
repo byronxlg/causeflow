@@ -1,5 +1,6 @@
 import type { GenerateResponse } from "@/lib/types";
 import { motion, useInView } from "framer-motion";
+import { ChevronDown, Binoculars, Plus } from "lucide-react";
 import React, { useRef } from "react";
 import { CauseCard } from "./CauseCard";
 import { Button } from "./ui/button";
@@ -48,131 +49,34 @@ function AnimatedTimelineItem({
 
 function Connector({ delay }: ConnectorProps) {
     return (
-        <div className="flex items-center justify-center w-full py-10">
-            <div className="relative">
-                {/* Enhanced background glow effect */}
-                <motion.div
-                    className="absolute inset-0 bg-gradient-to-b from-primary/30 via-chart-1/40 to-primary/30 rounded-full blur-lg"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1.2 }}
-                    transition={{ duration: 0.6, delay: delay + 0.1 }}
-                />
-
-                {/* Main connector */}
-                <motion.svg
-                    width="64"
-                    height="96"
-                    viewBox="0 0 64 96"
-                    className="relative z-10"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay }}
-                >
-                    {/* Enhanced background path */}
-                    <motion.path
-                        d="M32 8 Q16 48 32 88"
-                        stroke="hsl(var(--primary) / 0.4)"
-                        strokeWidth="8"
-                        fill="none"
-                        strokeLinecap="round"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{
-                            duration: 1.2,
-                            delay: delay + 0.2,
-                            ease: "easeInOut",
+        <div className="flex flex-col items-center justify-center w-full py-8">
+            {/* Stack of animated chevrons */}
+            <div className="flex flex-col items-center space-y-1">
+                {[0, 1, 2].map((index) => (
+                    <motion.div
+                        key={index}
+                        className="flex items-center justify-center"
+                        initial={{ opacity: 0.3, scale: 0.8 }}
+                        animate={{
+                            opacity: [0.3, 1, 0.3],
+                            scale: [0.8, 1, 0.8],
                         }}
-                    />
-
-                    {/* Main path - thicker and more prominent */}
-                    <motion.path
-                        d="M32 8 Q16 48 32 88"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth="4"
-                        fill="none"
-                        strokeLinecap="round"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{
-                            duration: 1.2,
-                            delay: delay + 0.3,
-                            ease: "easeInOut",
-                        }}
-                    />
-
-                    {/* Enhanced arrow head */}
-                    <motion.g
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1.2 }}
-                        transition={{
-                            duration: 0.5,
-                            delay: delay + 1,
-                            ease: "easeOut",
-                        }}
-                    >
-                        {/* Arrow background circle */}
-                        <circle
-                            cx="32"
-                            cy="88"
-                            r="6"
-                            fill="hsl(var(--primary))"
-                            opacity="0.9"
-                        />
-                        {/* Arrow head */}
-                        <path
-                            d="M24 82 L32 88 L40 82"
-                            stroke="hsl(var(--primary-foreground))"
-                            strokeWidth="3"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-                    </motion.g>
-
-                    {/* Enhanced floating particles */}
-                    <motion.circle
-                        cx="26"
-                        cy="30"
-                        r="2"
-                        fill="hsl(var(--chart-2))"
-                        initial={{ opacity: 0, y: 0 }}
-                        animate={{ opacity: [0, 1, 0], y: [0, 20, 0] }}
-                        transition={{
-                            duration: 3,
-                            delay: delay + 1.2,
-                            repeat: Infinity,
-                            repeatType: "loop",
-                        }}
-                    />
-                    <motion.circle
-                        cx="38"
-                        cy="55"
-                        r="1.5"
-                        fill="hsl(var(--chart-3))"
-                        initial={{ opacity: 0, y: 0 }}
-                        animate={{ opacity: [0, 1, 0], y: [0, 15, 0] }}
-                        transition={{
-                            duration: 2.5,
-                            delay: delay + 1.5,
-                            repeat: Infinity,
-                            repeatType: "loop",
-                        }}
-                    />
-                    <motion.circle
-                        cx="20"
-                        cy="70"
-                        r="1"
-                        fill="hsl(var(--chart-4))"
-                        initial={{ opacity: 0, y: 0 }}
-                        animate={{ opacity: [0, 1, 0], y: [0, 10, 0] }}
                         transition={{
                             duration: 2,
-                            delay: delay + 1.8,
+                            delay: delay + index * 0.2,
                             repeat: Infinity,
                             repeatType: "loop",
+                            ease: "easeInOut",
                         }}
-                    />
-                </motion.svg>
+                    >
+                        {/* Highlighted chevron */}
+                        {index === 1 ? (
+                            <ChevronDown className="w-8 h-8 text-primary" />
+                        ) : (
+                            <ChevronDown className="w-6 h-6 text-muted-foreground" />
+                        )}
+                    </motion.div>
+                ))}
             </div>
         </div>
     );
@@ -185,6 +89,7 @@ export function Timeline({
     loadingMoreEvents = false,
     onNewEventAnalysis,
 }: TimelineProps) {
+
     if (loading) {
         return <SkeletonTimeline />;
     }
@@ -201,9 +106,9 @@ export function Timeline({
             <div className="bg-card/90 backdrop-blur-sm p-8 rounded-lg border border-border shadow-lg">
                 {/* Header */}
                 <div className="mb-6 text-center">
-                    <h2 className="text-2xl font-bold text-foreground mb-2">
-                        {data.event}
-                    </h2>
+                    {/* <h2 className="text-2xl font-bold text-foreground mb-2">
+                        {data.event.charAt(0).toUpperCase() + data.event.slice(1)}
+                    </h2> */}
                     <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
                         <span>{steps.length} steps back in time</span>
                         <span>•</span>
@@ -228,12 +133,9 @@ export function Timeline({
                         aria-describedby="timeline-description"
                     >
                         {steps.map((step, index) => (
-                            <React.Fragment key={step.id}>
+                            <React.Fragment key={`${step.id}-${index}`}>
                                 <AnimatedTimelineItem index={index}>
-                                    <CauseCard
-                                        step={step}
-                                        index={index}
-                                    />
+                                    <CauseCard step={step} index={index} />
                                 </AnimatedTimelineItem>
                                 {index < steps.length - 1 && (
                                     <AnimatedTimelineItem index={index + 0.5}>
@@ -252,7 +154,7 @@ export function Timeline({
                                         disabled={loadingMoreEvents}
                                         size="lg"
                                         variant="outline"
-                                        className="px-8 py-3 text-lg rounded-full border-2 hover:bg-primary/10 transition-all duration-200"
+                                        className="px-8 py-3 text-lg rounded-full border-2 hover:bg-primary/10 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
                                     >
                                         {loadingMoreEvents ? (
                                             <>
@@ -268,7 +170,10 @@ export function Timeline({
                                                 Loading More Events...
                                             </>
                                         ) : (
-                                            <>🔍 Explore Deeper History</>
+                                            <>
+                                                <Binoculars className="w-5 h-5 mr-2" />
+                                                Explore Deeper History
+                                            </>
                                         )}
                                     </Button>
                                 )}
@@ -277,9 +182,10 @@ export function Timeline({
                                     <Button
                                         onClick={onNewEventAnalysis}
                                         size="lg"
-                                        className="px-8 py-3 text-lg rounded-full transition-all duration-200"
+                                        className="px-8 py-3 text-lg rounded-full transition-all duration-200 cursor-pointer"
                                     >
-                                        ✨ New Event Analysis
+                                        <Plus className="w-5 h-5 mr-2" />
+                                        New Event Analysis
                                     </Button>
                                 )}
                             </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import { ChartColumnBig, ChevronDown, Clock8, Search } from "lucide-react";
 import { useRef } from "react";
-import { ChevronDown } from "lucide-react";
 import { PromptBar } from "./PromptBar";
 import { AuroraBackground } from "./ui/aurora-background";
 
@@ -12,6 +12,7 @@ interface LandingPageProps {
     onGenerate: () => void;
     loading: boolean;
     onExampleClick: (example: string) => void;
+    isUserLoggedIn?: boolean;
 }
 
 export function LandingPage({
@@ -20,6 +21,7 @@ export function LandingPage({
     onGenerate,
     loading,
     onExampleClick,
+    isUserLoggedIn = false,
 }: LandingPageProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scrollY } = useScroll();
@@ -28,7 +30,7 @@ export function LandingPage({
     const headerY = useTransform(scrollY, [0, 300], [0, -100]);
     const headerScale = useTransform(scrollY, [0, 300], [1, 0.6]);
     const headerOpacity = useTransform(scrollY, [0, 150, 300], [1, 1, 0.9]);
-    
+
     const inputY = useTransform(scrollY, [0, 300], [100, 0]);
     const inputOpacity = useTransform(scrollY, [0, 150, 300], [0, 0.5, 1]);
     const inputScale = useTransform(scrollY, [0, 300], [0.8, 1]);
@@ -62,8 +64,8 @@ export function LandingPage({
                             Butterfly Effect
                         </div>
                         <div className="font-extralight text-base md:text-4xl text-muted-foreground max-w-4xl mx-auto">
-                            Understand how events unfold through time. Trace the causal
-                            chain from present to past.
+                            Understand how events unfold through time. Trace the
+                            causal chain from present to past.
                         </div>
                     </motion.div>
 
@@ -74,20 +76,22 @@ export function LandingPage({
                     >
                         <motion.div
                             animate={{ y: [0, 10, 0] }}
-                            transition={{ 
-                                duration: 2, 
-                                repeat: Infinity, 
-                                ease: "easeInOut" 
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut",
                             }}
                             className="flex flex-col items-center gap-2 cursor-pointer"
                             onClick={() => {
-                                window.scrollTo({ 
-                                    top: 300, 
-                                    behavior: "smooth" 
+                                window.scrollTo({
+                                    top: 300,
+                                    behavior: "smooth",
                                 });
                             }}
                         >
-                            <span className="text-sm text-muted-foreground">Scroll to explore</span>
+                            <span className="text-sm text-muted-foreground">
+                                Scroll to explore
+                            </span>
                             <ChevronDown className="w-6 h-6 text-muted-foreground" />
                         </motion.div>
                     </motion.div>
@@ -99,27 +103,38 @@ export function LandingPage({
                     >
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="text-center">
+                                <div className="flex items-center justify-center mb-3">
+                                    <Search className="w-6 h-6 text-primary" />
+                                </div>
                                 <div className="text-xl font-semibold text-foreground mb-2">
-                                    🔍 Trace Causes
+                                    Trace Causes
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                    Discover the chain of events that led to any outcome
+                                    Discover the chain of events that led to any
+                                    outcome
                                 </div>
                             </div>
                             <div className="text-center">
+                                <div className="flex items-center justify-center mb-3">
+                                    <Clock8 className="w-6 h-6 text-primary" />
+                                </div>
                                 <div className="text-xl font-semibold text-foreground mb-2">
-                                    ⏰ Timeline View
+                                    Timeline View
                                 </div>
                                 <div className="text-sm text-muted-foreground">
                                     Visualize how causes unfold chronologically
                                 </div>
                             </div>
                             <div className="text-center">
+                                <div className="flex items-center justify-center mb-3">
+                                    <ChartColumnBig className="w-6 h-6 text-primary" />
+                                </div>
                                 <div className="text-xl font-semibold text-foreground mb-2">
-                                    📊 Evidence Based
+                                    Evidence Based
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                    Get sources and evidence for each causal link
+                                    Get sources and evidence for each causal
+                                    link
                                 </div>
                             </div>
                         </div>
@@ -141,6 +156,7 @@ export function LandingPage({
                         onGenerate={onGenerate}
                         loading={loading}
                         onExampleClick={onExampleClick}
+                        isUserLoggedIn={isUserLoggedIn}
                     />
                 </motion.div>
 

@@ -40,4 +40,5 @@ export type QueryState = {
   result?: GenerateResponse;
   loading: boolean;
   error?: string;
+  currentHistoryFileId?: string; // Track current history file for updates
 };

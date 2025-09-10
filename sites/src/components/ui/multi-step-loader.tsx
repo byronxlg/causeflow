@@ -144,3 +144,50 @@ export const MultiStepLoader = ({
     </AnimatePresence>
   );
 };
+
+export const MultiStepLoaderInline = ({
+  loadingStates,
+  loading,
+  duration = 2000,
+  loop = true,
+}: {
+  loadingStates: LoadingState[];
+  loading?: boolean;
+  duration?: number;
+  loop?: boolean;
+}) => {
+  const [currentState, setCurrentState] = useState(0);
+
+  useEffect(() => {
+    if (!loading) {
+      setCurrentState(0);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setCurrentState((prevState) =>
+        loop
+          ? prevState === loadingStates.length - 1
+            ? 0
+            : prevState + 1
+          : Math.min(prevState + 1, loadingStates.length - 1)
+      );
+    }, duration);
+
+    return () => clearTimeout(timeout);
+  }, [currentState, loading, loop, loadingStates.length, duration]);
+  
+  if (!loading) return null;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="flex justify-center items-center py-12"
+    >
+      <div className="h-96 relative">
+        <LoaderCore value={currentState} loadingStates={loadingStates} />
+      </div>
+    </motion.div>
+  );
+};

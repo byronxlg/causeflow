@@ -1,21 +1,32 @@
+import { AuthModal } from "@/components/auth/AuthModal";
+import { Header } from "@/components/Header";
+import { LandingPage } from "@/components/LandingPage";
 import { PromptBar } from "@/components/PromptBar";
 import { Timeline } from "@/components/Timeline";
-import { LandingPage } from "@/components/LandingPage";
+import { MultiStepLoaderInline } from "@/components/ui/multi-step-loader";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthModal } from "@/components/auth/AuthModal";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { ApiError, generateCausalChain } from "@/lib/api";
+import { HistoryService, type HistoryItem } from "@/lib/history";
 import type { GenerateRequest, QueryState } from "@/lib/types";
 import { encodeUrlState } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { Route, LogIn, LogOut, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+const LOADING_STATES = [
+    { text: "Understanding your event..." },
+    { text: "Searching for historical context..." },
+    { text: "Identifying key causal factors..." },
+    { text: "Tracing backward through time..." },
+    { text: "Finding connecting events..." },
+    { text: "Finalizing causal chain..." },
+];
+
 function App() {
-    const { user, loading: authLoading, logout } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [showLandingPage, setShowLandingPage] = useState(true);
+    const [pendingPrompt, setPendingPrompt] = useState<QueryState | null>(null);
     const [state, setState] = useState<QueryState>({
         event: "",
         perspective: "balanced",
@@ -32,7 +43,7 @@ function App() {
             // Clear the URL hash and replace with clean URL
             window.history.replaceState(null, "", window.location.pathname);
         }
-        
+
         // Always start with landing page on reload
         setShowLandingPage(true);
         setState({
@@ -47,12 +58,13 @@ function App() {
     // Update URL when state changes (but not on landing page)
     useEffect(() => {
         // Only update URL when not on landing page and there are actual changes
-        if (!showLandingPage && (
-            state.event ||
-            state.perspective !== "balanced" ||
-            state.detailLevel !== 5 ||
-            state.verify
-        )) {
+        if (
+            !showLandingPage &&
+            (state.event ||
+                state.perspective !== "balanced" ||
+                state.detailLevel !== 5 ||
+                state.verify)
+        ) {
             const params = encodeUrlState(state);
             const newHash = params ? `#${params}` : "";
             if (window.location.hash !== newHash) {
@@ -63,7 +75,13 @@ function App() {
                 );
             }
         }
-    }, [state.event, state.perspective, state.detailLevel, state.verify, showLandingPage]);
+    }, [
+        state.event,
+        state.perspective,
+        state.detailLevel,
+        state.verify,
+        showLandingPage,
+    ]);
 
     // Show landing page when there's no result and no loading
     useEffect(() => {
@@ -72,14 +90,26 @@ function App() {
         }
     }, [state.result, state.loading, showLandingPage]);
 
+    // Handle pending prompt after login
+    useEffect(() => {
+        if (user && pendingPrompt && !authLoading) {
+            // User just logged in and we have a pending prompt
+            setState(pendingPrompt);
+            setPendingPrompt(null);
+            handleGenerate(pendingPrompt);
+        }
+    }, [user, pendingPrompt, authLoading]);
+
     const handleGenerate = async (currentState?: QueryState) => {
+        const stateToUse = currentState || state;
+
         if (!user) {
+            // Store the pending prompt with all current state
+            setPendingPrompt(stateToUse);
             toast.error("Please sign in to generate causal chains");
             setAuthModalOpen(true);
             return;
         }
-
-        const stateToUse = currentState || state;
 
         if (!stateToUse.event.trim()) {
             toast.error("Please enter an event to analyze");
@@ -104,6 +134,23 @@ function App() {
                 result,
                 loading: false,
             }));
+
+            // Save to history and track file ID for future updates
+            try {
+                const historyItem = await HistoryService.saveHistory(
+                    user.$id,
+                    request,
+                    result,
+                );
+                setState((prev) => ({
+                    ...prev,
+                    currentHistoryFileId: historyItem.$id,
+                }));
+            } catch (error) {
+                console.error("Failed to save to history:", error);
+                // History is optional, don't show error to user
+                // User can still use the app without history feature
+            }
 
             toast.success(`Generated ${result.steps.length} causal steps`);
         } catch (error) {
@@ -144,7 +191,8 @@ function App() {
 
         try {
             // Get the oldest event as the starting point for more history
-            const oldestStep = state.result.steps[state.result.steps.length - 1];
+            const oldestStep =
+                state.result.steps[state.result.steps.length - 1];
 
             const request: GenerateRequest = {
                 event: `${oldestStep.summary} (expand historical context)`,
@@ -155,25 +203,63 @@ function App() {
             const result = await generateCausalChain(request);
 
             // Merge the new steps with existing ones, avoiding duplicates
-            const newSteps = result.steps.filter(newStep =>
-                !state.result!.steps.some(existingStep =>
-                    existingStep.summary.toLowerCase().includes(newStep.summary.toLowerCase().substring(0, 50)) ||
-                    existingStep.title.toLowerCase() === newStep.title.toLowerCase()
-                )
+            const newSteps = result.steps.filter(
+                (newStep) =>
+                    !state.result!.steps.some(
+                        (existingStep) =>
+                            existingStep.summary
+                                .toLowerCase()
+                                .includes(
+                                    newStep.summary
+                                        .toLowerCase()
+                                        .substring(0, 50),
+                                ) ||
+                            existingStep.title.toLowerCase() ===
+                                newStep.title.toLowerCase(),
+                    ),
             );
 
             if (newSteps.length > 0) {
+                const updatedResult = state.result
+                    ? {
+                          ...state.result,
+                          steps: [...state.result.steps, ...newSteps],
+                      }
+                    : state.result;
+
                 setState((prev) => ({
                     ...prev,
-                    result: prev.result ? {
-                        ...prev.result,
-                        steps: [...prev.result.steps, ...newSteps]
-                    } : prev.result
+                    result: updatedResult,
                 }));
 
-                toast.success(`Added ${newSteps.length} more historical events`);
+                // Update the history file with the expanded timeline
+                console.log("Attempting to update history - File ID:", state.currentHistoryFileId, "Has result:", !!updatedResult);
+                console.log("Original steps:", state.result?.steps.length, "New steps:", newSteps.length, "Total steps:", updatedResult?.steps.length);
+                if (state.currentHistoryFileId && updatedResult) {
+                    try {
+                        console.log("Updating history file with", updatedResult.steps.length, "steps");
+                        await HistoryService.updateHistory(
+                            state.currentHistoryFileId,
+                            user.$id,
+                            updatedResult,
+                        );
+                        console.log("History file updated successfully with expanded timeline");
+                        toast.success("Timeline saved with expanded history");
+                    } catch (error) {
+                        console.error("Failed to update history file:", error);
+                        toast.error("Failed to save expanded timeline to history");
+                    }
+                } else {
+                    console.log("Skipping history update - Missing fileId or result");
+                }
+
+                toast.success(
+                    `Added ${newSteps.length} more historical events`,
+                );
             } else {
-                toast.info("No additional unique events found in this time period");
+                toast.info(
+                    "No additional unique events found in this time period",
+                );
             }
         } catch (error) {
             console.error("More events error:", error);
@@ -181,9 +267,11 @@ function App() {
 
             if (error instanceof ApiError) {
                 if (error.status === 429) {
-                    errorMessage = "Rate limit exceeded. Please try again later.";
+                    errorMessage =
+                        "Rate limit exceeded. Please try again later.";
                 } else if (error.status === 400) {
-                    errorMessage = "Invalid request. Please try a different approach.";
+                    errorMessage =
+                        "Invalid request. Please try a different approach.";
                 }
             }
 
@@ -206,6 +294,26 @@ function App() {
             loading: false,
         });
         setShowLandingPage(true);
+    };
+
+    const handleSelectHistory = (item: HistoryItem) => {
+        // Load the historical analysis
+        setState({
+            event: item.event,
+            perspective: item.perspective as
+                | "economic"
+                | "political"
+                | "social"
+                | "technical"
+                | "balanced",
+            detailLevel: item.detailLevel,
+            verify: false,
+            loading: false,
+            result: item.result,
+            currentHistoryFileId: item.$id, // Track the loaded history file
+        });
+        setShowLandingPage(false);
+        toast.success("Loaded historical analysis");
     };
 
     // Keyboard shortcuts
@@ -243,32 +351,21 @@ function App() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [state.event, state.loading, state.result]);
 
-    const handleLogout = async () => {
-        try {
-            await logout();
-            setState({
-                event: "",
-                perspective: "balanced",
-                detailLevel: 5,
-                verify: false,
-                loading: false,
-            });
-            toast.success("Successfully logged out");
-        } catch (error: any) {
-            toast.error(error.message || "Logout failed");
-        }
-    };
-
     // Show landing page initially (even during auth loading)
     if (showLandingPage) {
         return (
             <>
+                <Header
+                    onSignInClick={() => setAuthModalOpen(true)}
+                    onSelectHistory={handleSelectHistory}
+                />
                 <LandingPage
                     event={state.event}
                     onEventChange={handleEventChange}
                     onGenerate={() => handleGenerate()}
                     loading={state.loading || authLoading}
                     onExampleClick={handleExampleClick}
+                    isUserLoggedIn={!!user}
                 />
 
                 {/* Auth Modal */}
@@ -285,65 +382,30 @@ function App() {
     // Show auth loading state for main interface if needed
     if (authLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary to-chart-1 rounded-lg flex justify-center items-center mb-4 mx-auto">
-                        <Route />
+            <>
+                <Header
+                    onSignInClick={() => setAuthModalOpen(true)}
+                    onSelectHistory={handleSelectHistory}
+                />
+                <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20 flex items-center justify-center pt-20">
+                    <div className="text-center">
+                        <div className="w-8 h-8 animate-pulse bg-muted rounded-lg mb-4 mx-auto" />
+                        <p className="text-muted-foreground">Loading...</p>
                     </div>
-                    <p className="text-muted-foreground">Loading...</p>
                 </div>
-            </div>
+            </>
         );
     }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20 flex flex-col">
-            {/* Header */}
-            <header className="bg-card/80 backdrop-blur-sm border-b border-border sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-primary to-chart-1 rounded-lg flex justify-center items-center">
-                                <Route />
-                            </div>
-                            <h1 className="text-2xl font-bold text-foreground">
-                                Butterfly
-                            </h1>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            {user ? (
-                                <>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <User size={16} />
-                                        <span>{user.name || user.email}</span>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleLogout}
-                                    >
-                                        <LogOut size={16} />
-                                        Sign Out
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => setAuthModalOpen(true)}
-                                >
-                                    <LogIn size={16} />
-                                    Sign In
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <Header
+                onSignInClick={() => setAuthModalOpen(true)}
+                onSelectHistory={handleSelectHistory}
+            />
 
             {/* Main content */}
-            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full pt-20">
                 {/* Prompt bar */}
                 <div className="mb-8">
                     {!state.result && (
@@ -353,6 +415,7 @@ function App() {
                             onGenerate={() => handleGenerate()}
                             loading={state.loading}
                             onExampleClick={handleExampleClick}
+                            isUserLoggedIn={!!user}
                         />
                     )}
                 </div>
@@ -360,14 +423,43 @@ function App() {
                 {/* Content area */}
                 <div className="min-h-[400px]">
                     {state.result && !state.loading ? (
-                        <Timeline
-                            data={state.result}
-                            onRequestMoreEvents={handleRequestMoreEvents}
-                            loadingMoreEvents={loadingMoreEvents}
-                            onNewEventAnalysis={handleNewEventAnalysis}
-                        />
+                        <div className="space-y-8">
+                            {/* Show capitalized event title */}
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-primary mb-2">
+                                    {state.event.charAt(0).toUpperCase() +
+                                        state.event.slice(1)}
+                                </h2>
+                                <p className="text-muted-foreground">
+                                    Causal chain analysis completed
+                                </p>
+                            </div>
+                            <Timeline
+                                data={state.result}
+                                onRequestMoreEvents={handleRequestMoreEvents}
+                                loadingMoreEvents={loadingMoreEvents}
+                                onNewEventAnalysis={handleNewEventAnalysis}
+                            />
+                        </div>
                     ) : state.loading ? (
-                        <Timeline data={null as any} loading={true} />
+                        <div className="space-y-8">
+                            {/* Show capitalized event being analyzed */}
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-primary mb-2">
+                                    {state.event.charAt(0).toUpperCase() +
+                                        state.event.slice(1)}
+                                </h2>
+                                <p className="text-muted-foreground">
+                                    Building causal chain for this event...
+                                </p>
+                            </div>
+                            <MultiStepLoaderInline
+                                loadingStates={LOADING_STATES}
+                                loading={state.loading}
+                                duration={3000}
+                                loop={true}
+                            />
+                        </div>
                     ) : null}
                 </div>
             </main>
@@ -381,7 +473,7 @@ function App() {
                         </div>
                         <div className="flex items-center gap-6">
                             <a
-                                href="https://github.com"
+                                href="https://github.com/byronxlg/causeflow"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors duration-200 text-sm"
@@ -389,7 +481,7 @@ function App() {
                                 GitHub
                             </a>
                             <a
-                                href="https://linkedin.com"
+                                href="https://www.linkedin.com/in/byron-lg-smith/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors duration-200 text-sm"
